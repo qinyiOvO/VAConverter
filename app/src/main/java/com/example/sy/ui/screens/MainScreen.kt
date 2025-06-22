@@ -56,6 +56,9 @@ import androidx.compose.material3.rememberDrawerState
 import androidx.compose.material3.ModalNavigationDrawer
 import androidx.compose.material3.ModalDrawerSheet
 import androidx.compose.material3.TopAppBarDefaults
+import com.example.sy.network.DownloadStatus
+import com.example.sy.network.DownloadTask
+import com.example.sy.network.DownloadTaskManager
 
 // 下载任务状态
 enum class DownloadStatus {
@@ -89,7 +92,14 @@ data class DeleteConfirmationState(
 // 文件位置对话框状态
 data class FileLocationDialogState(
     val isVisible: Boolean = false,
-    val filePath: String = ""
+    val filePath: String = "",
+    val fileName: String = ""
+)
+
+// 取消确认对话框数据类
+data class CancelConfirmationState(
+    val task: DownloadTask? = null,
+    val isVisible: Boolean = false
 )
 
 // 添加下载任务持久化存储
@@ -197,65 +207,78 @@ fun MainScreen(
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     var linkInput by remember { mutableStateOf("") }
+    var downloadStatus by remember { mutableStateOf<String?>(null) }
     
-    // 状态变量
+    // 下载任务列表
+    var downloadingTasks by remember { mutableStateOf<List<DownloadTask>>(emptyList()) }
+    var completedTasks by remember { mutableStateOf<List<DownloadTask>>(emptyList()) }
+    
+    // 对话框状态
     var showProgressDialog by remember { mutableStateOf(false) }
     var progressDialogMessage by remember { mutableStateOf("") }
     var showConfirmDialog by remember { mutableStateOf(false) }
-    var showLocationDialog by remember { mutableStateOf(FileLocationDialogState()) }
+    var showPermissionDialog by remember { mutableStateOf(false) }
+    var permissionMessage by remember { mutableStateOf("") }
+    var deleteConfirmationState by remember { mutableStateOf(DeleteConfirmationState()) }
+    var fileLocationDialogState by remember { mutableStateOf(FileLocationDialogState()) }
+    var tempNotification by remember { mutableStateOf<Pair<String, DownloadTask?>?>(null) }
+    var cancelConfirmation by remember { mutableStateOf(CancelConfirmationState()) }
     var showNetworkDialog by remember { mutableStateOf(false) }
-    
+    var isNetworkAvailable by remember { mutableStateOf(true) }
+    var showErrorDialog by remember { mutableStateOf(false) }
+    var currentErrorTask by remember { mutableStateOf<DownloadTask?>(null) }
+
     // 抽屉状态
     val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
-    
-    // 取消确认对话框状态
-    var cancelConfirmation by remember { mutableStateOf<DownloadTask?>(null) }
-    
-    // 下载任务列表
-    var downloadingTasks by remember { mutableStateOf(listOf<DownloadTask>()) }
-    var completedTasks by remember { mutableStateOf(listOf<DownloadTask>()) }
-    
-    // 临时通知状态
-    var tempNotification by remember { mutableStateOf<Pair<String, DownloadTask?>?>(null) }
-    
-    // 删除确认对话框状态
-    var deleteConfirmation by remember { mutableStateOf(DeleteConfirmationState()) }
 
     // 下载任务Job管理
     val downloadJobs = remember { mutableMapOf<String, Boolean>() }
     
     // 权限对话框
-    var showPermissionDialog by remember { mutableStateOf(false) }
-    var permissionMessage by remember { mutableStateOf("") }
     var currentAction by remember { mutableStateOf<(() -> Unit)?>(null) }
     
     // 权限请求启动器
     val permissionLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.RequestMultiplePermissions()
+        ActivityResultContracts.RequestMultiplePermissions()
     ) { permissions ->
-        val allGranted = permissions.values.all { it }
+        val allGranted = permissions.values.all { granted -> granted }
         if (allGranted) {
-            currentAction?.invoke()
+            com.example.sy.network.handleStartDownload(
+                context = context,
+                shareText = linkInput,
+                scope = scope,
+                downloadTaskManager = DownloadTaskManager,
+                onStatusUpdate = { status -> downloadStatus = status }
+            )
         } else {
-            showPermissionDialog = true
-            permissionMessage = "需要存储权限才能继续操作"
+            downloadStatus = "需要存储权限才能下载视频"
         }
     }
 
     // 网络状态监听
     val networkMonitor = remember { NetworkMonitor(context) }
-    var isNetworkAvailable by remember { mutableStateOf(networkMonitor.isNetworkAvailable()) }
 
-    // 加载已完成的任务
+    // 观察下载任务
     LaunchedEffect(Unit) {
-        completedTasks = DownloadTaskManager.loadCompletedTasks(context)
-    }
-    
-    // 保存已完成的任务
-    DisposableEffect(completedTasks) {
-        onDispose {
-            DownloadTaskManager.saveCompletedTasks(context, completedTasks)
+        DownloadTaskManager.downloadingTasks.collect { tasks ->
+            downloadingTasks = tasks
         }
+    }
+
+    LaunchedEffect(Unit) {
+        DownloadTaskManager.completedTasks.collect { tasks ->
+            completedTasks = tasks
+        }
+    }
+
+    // 保存已完成任务到本地存储
+    LaunchedEffect(completedTasks) {
+        DownloadTaskManager.saveCompletedTasks(context)
+    }
+
+    // 加载已完成任务
+    LaunchedEffect(Unit) {
+        DownloadTaskManager.loadCompletedTasks(context)
     }
 
     // 处理临时通知的消失
@@ -368,7 +391,7 @@ fun MainScreen(
                             value = linkInput,
                             onValueChange = { linkInput = it },
                             modifier = Modifier.weight(1f),
-                            placeholder = { Text("粘贴分享链接") },
+                            placeholder = { Text("粘贴分享文本") },
                             singleLine = true
                         )
                         // TODO: 需要添加粘贴图标
@@ -380,178 +403,47 @@ fun MainScreen(
 
                 Spacer(modifier = Modifier.height(16.dp))
 
+                // 下载状态显示
+                downloadStatus?.let { status ->
+                    Text(
+                        text = status,
+                        modifier = Modifier.padding(vertical = 8.dp),
+                        color = if (status.contains("失败") || status.contains("错误")) {
+                            Color.Red
+                        } else {
+                            Color.Unspecified
+                        }
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(16.dp))
+
                 // 操作按钮区域
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     Button(
-                        onClick = { /* TODO: 实现视频下载 */ },
+                        onClick = {
+                            if (PermissionManager.checkStoragePermissions(context)) {
+                                com.example.sy.network.handleStartDownload(
+                                    context = context,
+                                    shareText = linkInput,
+                                    scope = scope,
+                                    downloadTaskManager = DownloadTaskManager,
+                                    onStatusUpdate = { status -> downloadStatus = status }
+                                )
+                                linkInput = "" // 清空输入框
+                            } else {
+                                permissionLauncher.launch(PermissionManager.getRequiredPermissions())
+                            }
+                        },
                         modifier = Modifier.weight(1f),
                         colors = ButtonDefaults.buttonColors(
                             containerColor = MaterialTheme.colorScheme.primary
                         )
                     ) {
-                        // TODO: 需要添加视频下载图标
-                        Text("视频下载")
-                    }
-                    
-                    Button(
-                        onClick = { /* TODO: 实现音频下载 */ },
-                        modifier = Modifier.weight(1f),
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = Color(0xFFFFC107)
-                        )
-                    ) {
-                        // TODO: 需要添加音频下载图标
-                        Text("音频下载")
-                    }
-                }
-
-                Spacer(modifier = Modifier.height(16.dp))
-
-                // 测试按钮区域
-                Card(
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(8.dp)
-                ) {
-                    Column(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(16.dp),
-                        verticalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        Text(
-                            "测试功能区",
-                            fontWeight = FontWeight.Medium,
-                            fontSize = 16.sp
-                        )
-                        
-                        // 网络状态显示
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Text(
-                                text = "网络状态：${if (isNetworkAvailable) "正常" else "断开"}",
-                                color = if (isNetworkAvailable) Color(0xFF4CAF50) else Color(0xFFF44336)
-                            )
-                            TextButton(
-                                onClick = { 
-                                    isNetworkAvailable = !isNetworkAvailable
-                                    if (!isNetworkAvailable) {
-                                        // 如果断开网络，将所有正在下载的任务标记为失败
-                                        downloadingTasks = downloadingTasks.map { task ->
-                                            if (task.status == DownloadStatus.DOWNLOADING) {
-                                                downloadJobs[task.id] = false
-                                                task.copy(
-                                                    status = DownloadStatus.FAILED,
-                                                    errorMessage = "网络连接中断",
-                                                    lastDownloadPosition = task.downloadedBytes  // 保存断点位置
-                                                )
-                                            } else task
-                                        }
-                                        tempNotification = "网络已断开，已保存下载进度" to null
-                                    } else {
-                                        tempNotification = "网络已恢复，可以继续下载" to null
-                                    }
-                                }
-                            ) {
-                                Text(if (isNetworkAvailable) "断开网络" else "恢复网络")
-                            }
-                        }
-
-                        HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
-
-                        Button(
-                            onClick = {
-                                if (!isNetworkAvailable) {
-                                    tempNotification = "网络未连接，无法开始下载" to null
-                                    return@Button
-                                }
-                                scope.launch {
-                                    // 模拟添加下载任务
-                                    val newTask = DownloadTask(
-                                        id = System.currentTimeMillis().toString(),
-                                        fileName = "测试视频.mp4",
-                                        status = DownloadStatus.DOWNLOADING,
-                                        progress = 0f,
-                                        speed = "1.2MB/s",
-                                        totalSize = "56MB",
-                                        remainingTime = "剩余 01:30"
-                                    )
-                                    downloadingTasks = downloadingTasks + newTask
-                                    downloadJobs[newTask.id] = true
-                                    
-                                    // 模拟下载进度
-                                    var progress = 0f
-                                    var retryCount = 0
-                                    val maxRetries = 3
-                                    
-                                    while (progress < 1f && downloadJobs[newTask.id] == true) {
-                                        delay(500)
-                                        // 检查网络状态
-                                        if (!isNetworkAvailable) {
-                                            retryCount++
-                                            if (retryCount <= maxRetries) {
-                                                // 等待网络恢复
-                                                while (!isNetworkAvailable && downloadJobs[newTask.id] == true) {
-                                                    delay(1000) // 每秒检查一次网络状态
-                                                }
-                                                // 如果任务被取消，直接返回
-                                                if (downloadJobs[newTask.id] != true) {
-                                                    return@launch
-                                                }
-                                                // 网络恢复后继续下载
-                                                continue
-                                            }
-                                        
-                                            // 超过最大重试次数
-                                            downloadingTasks = downloadingTasks.map { task ->
-                                                if (task.id == newTask.id) {
-                                                    task.copy(
-                                                        status = DownloadStatus.FAILED,
-                                                        errorMessage = "网络连接不稳定，请稍后重试"
-                                                    )
-                                                } else task
-                                            }
-                                            tempNotification = "下载失败：网络连接不稳定" to newTask
-                                            return@launch
-                                        }
-
-                                        progress += 0.1f
-                                        downloadingTasks = downloadingTasks.map { task ->
-                                            if (task.id == newTask.id && task.status == DownloadStatus.DOWNLOADING) {
-                                                task.copy(progress = progress.coerceAtMost(1f))
-                                            } else task
-                                        }
-                                    }
-                                    
-                                    // 检查是否是因为取消而结束
-                                    if (downloadJobs[newTask.id] == false) {
-                                        return@launch
-                                    }
-                                    
-                                    // 检查是否已达到100%进度
-                                    if (progress >= 1f) {
-                                        // 下载完成，移动到已完成列表
-                                        downloadingTasks = downloadingTasks.filter { it.id != newTask.id }
-                                        completedTasks = completedTasks + newTask.copy(
-                                            status = DownloadStatus.COMPLETED,
-                                            progress = 1f,
-                                            speed = "0KB/s",
-                                            remainingTime = "已完成"
-                                        )
-                                        tempNotification = "下载完成" to newTask.copy(status = DownloadStatus.COMPLETED)
-                                        downloadJobs.remove(newTask.id)
-                                    }
-                                }
-                            },
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
-                            Text("测试下载任务")
-                        }
+                        Text("下载")
                     }
                 }
 
@@ -596,11 +488,11 @@ fun MainScreen(
                                         else it
                                     }
                                     downloadJobs[task.id] = false
-                                    tempNotification = "已暂停下载" to task
+                                    tempNotification = Pair("已暂停下载", task)
                                 },
                                 onResume = { task ->
                                     if (!isNetworkAvailable) {
-                                        tempNotification = "网络未连接，无法继续下载" to task
+                                        tempNotification = Pair("网络未连接，无法继续下载", task)
                                         return@DownloadingList
                                     }
                                     downloadingTasks = downloadingTasks.map { 
@@ -641,7 +533,7 @@ fun MainScreen(
                                                         )
                                                     } else task
                                                 }
-                                                tempNotification = "下载失败：网络连接不稳定" to task
+                                                tempNotification = Pair("下载失败：网络连接不稳定", task)
                                                 return@launch
                                             }
 
@@ -668,13 +560,17 @@ fun MainScreen(
                                                 speed = "0KB/s",
                                                 remainingTime = "已完成"
                                             )
-                                            tempNotification = "下载完成" to task.copy(status = DownloadStatus.COMPLETED)
+                                            val completedTask = task.copy(status = DownloadStatus.COMPLETED)
+                                            tempNotification = Pair("下载完成", completedTask)
                                             downloadJobs.remove(task.id)
                                         }
                                     }
                                 },
                                 onCancel = { task -> 
-                                    cancelConfirmation = task
+                                    cancelConfirmation = CancelConfirmationState(
+                                        task = task,
+                                        isVisible = true
+                                    )
                                 },
                                 onRetry = { task ->
                                     scope.launch {
@@ -685,7 +581,7 @@ fun MainScreen(
                                                 delay(1000) // 等待1秒再检查
                                                 networkChecks++
                                                 if (networkChecks == 3) {
-                                                    tempNotification = "网络未连接，无法重试下载" to task
+                                                    tempNotification = Pair("网络未连接，无法重试下载", task)
                                                     return@launch
                                                 }
                                                 continue
@@ -738,9 +634,9 @@ fun MainScreen(
                                                             } else t
                                                         }
                                                         tempNotification = if (!isNetworkAvailable)
-                                                            "下载失败：网络连接不稳定" to task
+                                                            Pair("下载失败：网络连接不稳定", task)
                                                         else
-                                                            "下载已取消" to task
+                                                            Pair("下载已取消", task)
                                                         return@launch
                                                     }
                                                     // 网络恢复后继续下载
@@ -755,7 +651,7 @@ fun MainScreen(
                                                             )
                                                         } else t
                                                     }
-                                                    tempNotification = "下载失败：网络连接不稳定" to task
+                                                    tempNotification = Pair("下载失败：网络连接不稳定", task)
                                                     return@launch
                                                 }
                                             }
@@ -787,7 +683,8 @@ fun MainScreen(
                                                 speed = "0KB/s",
                                                 remainingTime = "已完成"
                                             )
-                                            tempNotification = "下载完成" to task.copy(status = DownloadStatus.COMPLETED)
+                                            val completedTask = task.copy(status = DownloadStatus.COMPLETED)
+                                            tempNotification = Pair("下载完成", completedTask)
                                             downloadJobs.remove(task.id)
                                         }
                                     }
@@ -796,13 +693,13 @@ fun MainScreen(
                             1 -> CompletedList(
                                 tasks = completedTasks,
                                 onDeleteClick = { task ->
-                                    deleteConfirmation = DeleteConfirmationState(
+                                    deleteConfirmationState = DeleteConfirmationState(
                                         task = task,
                                         isVisible = true
                                     )
                                 },
                                 onShowLocation = { filePath ->
-                                    showLocationDialog = FileLocationDialogState(
+                                    fileLocationDialogState = FileLocationDialogState(
                                         isVisible = true,
                                         filePath = filePath
                                     )
@@ -834,57 +731,76 @@ fun MainScreen(
     
     // 显示临时通知
     tempNotification?.let { (message, task) ->
-        when (task?.status) {
-            DownloadStatus.COMPLETED -> {
-                Toast(
-                    message = "下载完成：${task.fileName}",
-                    isVisible = true,
-                    onDismiss = { tempNotification = null }
-                )
-            }
-            DownloadStatus.FAILED -> {
-                AlertDialog(
-                    onDismissRequest = { tempNotification = null },
-                    title = { 
-                        Text(
-                            "下载失败",
-                            color = Color(0xFFF44336)
-                        ) 
-                    },
-                    text = { 
-                        Column {
-                            Text("文件：${task.fileName}")
-                            Text("原因：${task.errorMessage}")
-                            if (task.resumeSupported) {
-                                Text("已保存下载进度：${(task.progress * 100).toInt()}%")
+        Snackbar(
+            modifier = Modifier.padding(16.dp),
+            action = {
+                if (task != null) {
+                    TextButton(
+                        onClick = {
+                            when (task.status) {
+                                DownloadStatus.COMPLETED -> {
+                                    fileLocationDialogState = FileLocationDialogState(
+                                        isVisible = true,
+                                        fileName = task.fileName,
+                                        filePath = task.filePath
+                                    )
+                                }
+                                DownloadStatus.FAILED -> {
+                                    // 显示错误详情
+                                    showErrorDialog = true
+                                    currentErrorTask = task
+                                }
+                                else -> {}
                             }
+                            tempNotification = null
                         }
-                    },
-                    confirmButton = {
-                        TextButton(
-                            onClick = { tempNotification = null }
-                        ) {
-                            Text("确定")
-                        }
+                    ) {
+                        Text("查看")
                     }
-                )
+                }
             }
-            else -> {
-                Toast(
-                    message = message,
-                    isVisible = true,
-                    onDismiss = { tempNotification = null }
-                )
-            }
+        ) {
+            Text(message)
         }
     }
 
+    // 显示错误对话框
+    if (showErrorDialog && currentErrorTask != null) {
+        AlertDialog(
+            onDismissRequest = { 
+                showErrorDialog = false
+                currentErrorTask = null
+            },
+            title = { Text("下载失败") },
+            text = { 
+                Column {
+                    Text("文件名: ${currentErrorTask!!.fileName}")
+                    Text("错误信息: ${currentErrorTask!!.errorMessage}")
+                    if (currentErrorTask!!.resumeSupported) {
+                        Text("支持断点续传")
+                    }
+                    Text("已下载: ${currentErrorTask!!.progress}%")
+                }
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = { 
+                        showErrorDialog = false
+                        currentErrorTask = null
+                    }
+                ) {
+                    Text("确定")
+                }
+            }
+        )
+    }
+
     // 显示删除确认对话框
-    if (deleteConfirmation.isVisible) {
-        val task = deleteConfirmation.task
+    if (deleteConfirmationState.isVisible) {
+        val task = deleteConfirmationState.task
         if (task != null) {
             AlertDialog(
-                onDismissRequest = { deleteConfirmation = DeleteConfirmationState() },
+                onDismissRequest = { deleteConfirmationState = DeleteConfirmationState() },
                 title = { Text("删除任务") },
                 confirmButton = {
                     Column(
@@ -894,8 +810,8 @@ fun MainScreen(
                         TextButton(
                             onClick = {
                                 completedTasks = completedTasks.filter { it.id != task.id }
-                                tempNotification = "已删除任务" to null
-                                deleteConfirmation = DeleteConfirmationState()
+                                tempNotification = null
+                                deleteConfirmationState = DeleteConfirmationState()
                             },
                             modifier = Modifier.fillMaxWidth()
                         ) {
@@ -904,8 +820,8 @@ fun MainScreen(
                         TextButton(
                             onClick = {
                                 completedTasks = completedTasks.filter { it.id != task.id }
-                                tempNotification = "已删除源文件" to null
-                                deleteConfirmation = DeleteConfirmationState()
+                                tempNotification = null
+                                deleteConfirmationState = DeleteConfirmationState()
                             },
                             modifier = Modifier.fillMaxWidth()
                         ) {
@@ -916,7 +832,7 @@ fun MainScreen(
                             horizontalArrangement = Arrangement.End
                         ) {
                             TextButton(
-                                onClick = { deleteConfirmation = DeleteConfirmationState() }
+                                onClick = { deleteConfirmationState = DeleteConfirmationState() }
                             ) {
                                 Text("取消")
                             }
@@ -930,14 +846,14 @@ fun MainScreen(
     }
 
     // 文件位置对话框
-    if (showLocationDialog.isVisible) {
+    if (fileLocationDialogState.isVisible) {
         AlertDialog(
-            onDismissRequest = { showLocationDialog = FileLocationDialogState() },
+            onDismissRequest = { fileLocationDialogState = FileLocationDialogState() },
             title = { Text("文件位置") },
-            text = { Text(showLocationDialog.filePath) },
+            text = { Text(fileLocationDialogState.filePath) },
             dismissButton = {
                 TextButton(
-                    onClick = { showLocationDialog = FileLocationDialogState() }
+                    onClick = { fileLocationDialogState = FileLocationDialogState() }
                 ) {
                     Text("取消")
                 }
@@ -946,9 +862,9 @@ fun MainScreen(
                 TextButton(
                     onClick = {
                         scope.launch {
-                            openFileLocation(context, showLocationDialog.filePath)
+                            openFileLocation(context, fileLocationDialogState.filePath)
                         }
-                        showLocationDialog = FileLocationDialogState()
+                        fileLocationDialogState = FileLocationDialogState()
                     }
                 ) {
                     Text("打开")
@@ -982,9 +898,9 @@ fun MainScreen(
     }
 
     // 取消确认对话框
-    cancelConfirmation?.let { task ->
+    cancelConfirmation.task?.let { task ->
         AlertDialog(
-            onDismissRequest = { cancelConfirmation = null },
+            onDismissRequest = { cancelConfirmation = CancelConfirmationState() },
             title = { Text("确认取消") },
             text = { Text(text = "确定要取消下载 ${task.fileName} 吗？") },
             dismissButton = {
@@ -992,15 +908,15 @@ fun MainScreen(
                     onClick = {
                         downloadJobs[task.id] = false
                         downloadingTasks = downloadingTasks.filter { it.id != task.id }
-                        tempNotification = "已取消下载" to task
-                        cancelConfirmation = null
+                        tempNotification = null
+                        cancelConfirmation = CancelConfirmationState()
                     }
                 ) {
                     Text("确定")
                 }
             },
             confirmButton = {
-                TextButton(onClick = { cancelConfirmation = null }) {
+                TextButton(onClick = { cancelConfirmation = CancelConfirmationState() }) {
                     Text("取消")
                 }
             }
