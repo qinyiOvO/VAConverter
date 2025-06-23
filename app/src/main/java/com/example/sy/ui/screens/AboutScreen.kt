@@ -83,8 +83,8 @@ fun AboutScreen(
                 
                 // 应用名称
                 Text(
-                    text = "视频下载器",
-                    fontSize = 24.sp,
+                    text = "视频音频转换器",
+                    fontSize = 28.sp,
                     fontWeight = FontWeight.Medium,
                     color = Color(0xFF212121)
                 )
@@ -94,7 +94,7 @@ fun AboutScreen(
                 // 版本信息
                 Text(
                     text = "版本 1.0.0",
-                    fontSize = 14.sp,
+                    fontSize = 18.sp,
                     color = Color(0xFF757575)
                 )
                 
@@ -102,8 +102,8 @@ fun AboutScreen(
                 
                 // 开发者信息
                 Text(
-                    text = "开发者：Your Name",
-                    fontSize = 14.sp,
+                    text = "开发者：旭尧",
+                    fontSize = 18.sp,
                     color = Color(0xFF757575)
                 )
                 
@@ -111,8 +111,8 @@ fun AboutScreen(
                 
                 // 应用描述
                 Text(
-                    text = "这是一个简单易用的视频下载工具，支持多种格式下载和转换。",
-                    fontSize = 14.sp,
+                    text = "本应用支持将本地视频文件一键转换为音频（MP3/AAC/WAV）文件，操作简单，转换高效，适合音频提取等多种场景。",
+                    fontSize = 18.sp,
                     color = Color(0xFF757575),
                     textAlign = TextAlign.Center,
                     modifier = Modifier.padding(horizontal = 24.dp)
@@ -171,26 +171,27 @@ private fun AboutItem(
 ) {
     Surface(
         onClick = onClick,
-        color = Color.White
+        color = Color.White,
+        modifier = Modifier.height(64.dp)
     ) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 16.dp, vertical = 12.dp),
+                .padding(horizontal = 24.dp, vertical = 16.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             Icon(
                 imageVector = icon,
                 contentDescription = title,
                 tint = textColor,
-                modifier = Modifier.size(24.dp)
+                modifier = Modifier.size(32.dp)
             )
             
-            Spacer(modifier = Modifier.width(16.dp))
+            Spacer(modifier = Modifier.width(24.dp))
             
             Text(
                 text = title,
-                fontSize = 16.sp,
+                fontSize = 20.sp,
                 color = textColor,
                 modifier = Modifier.weight(1f)
             )
@@ -198,8 +199,8 @@ private fun AboutItem(
             if (showArrow) {
                 Icon(
                     imageVector = Icons.AutoMirrored.Filled.ArrowForward,
-                    contentDescription = "箭头",
-                    tint = Color(0xFF757575)
+                    contentDescription = null,
+                    modifier = Modifier.size(28.dp)
                 )
             }
         }

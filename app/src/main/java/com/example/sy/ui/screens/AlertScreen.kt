@@ -433,4 +433,157 @@ private fun AlertScreenPreview() {
             onCancel = {}
         )
     }
+}
+
+@Composable
+fun ConvertProgressNotification(
+    title: String,
+    progress: Float,
+    onPause: () -> Unit,
+    onCancel: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Card(
+        modifier = modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(8.dp),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp)
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = title,
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.Medium,
+                    color = NotificationColors.TextPrimary
+                )
+                Row {
+                    TextButton(onClick = onPause) { Text("暂停") }
+                    TextButton(onClick = onCancel) { Text("取消") }
+                }
+            }
+            Spacer(modifier = Modifier.height(8.dp))
+            LinearProgressIndicator(
+                progress = { progress },
+                modifier = Modifier.fillMaxWidth().height(2.dp),
+                color = NotificationColors.Primary,
+                trackColor = Color(0xFFE0E0E0)
+            )
+            Spacer(modifier = Modifier.height(4.dp))
+            Text(
+                text = "${(progress * 100).toInt()}%",
+                fontSize = 12.sp,
+                color = NotificationColors.TextSecondary
+            )
+        }
+    }
+}
+
+@Composable
+fun ConvertCompleteNotification(
+    fileName: String,
+    onOpenFile: () -> Unit,
+    onShowLocation: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Card(
+        modifier = modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(8.dp),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+    ) {
+        Column(
+            modifier = Modifier.fillMaxWidth().padding(16.dp)
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column {
+                    Text("转换完成", fontSize = 14.sp, fontWeight = FontWeight.Medium, color = NotificationColors.TextPrimary)
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(fileName, fontSize = 12.sp, color = NotificationColors.TextSecondary)
+                }
+                Row {
+                    TextButton(onClick = onOpenFile) { Text("打开文件") }
+                    TextButton(onClick = onShowLocation) { Text("查看位置") }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun ConvertFailedNotification(
+    errorMessage: String,
+    onRetry: () -> Unit,
+    onCancel: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Card(
+        modifier = modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(8.dp),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+    ) {
+        Column(
+            modifier = Modifier.fillMaxWidth().padding(16.dp)
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column {
+                    Text("转换失败", fontSize = 14.sp, fontWeight = FontWeight.Medium, color = NotificationColors.TextPrimary)
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(errorMessage, fontSize = 12.sp, color = NotificationColors.TextSecondary)
+                }
+                Row {
+                    TextButton(onClick = onRetry) { Text("重试") }
+                    TextButton(onClick = onCancel) { Text("取消") }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun ConvertPausedNotification(
+    progress: String,
+    onResume: () -> Unit,
+    onCancel: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Card(
+        modifier = modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(8.dp),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+    ) {
+        Column(
+            modifier = Modifier.fillMaxWidth().padding(16.dp)
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column {
+                    Text("转换已暂停", fontSize = 14.sp, fontWeight = FontWeight.Medium, color = NotificationColors.TextPrimary)
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(progress, fontSize = 12.sp, color = NotificationColors.TextSecondary)
+                }
+                Row {
+                    TextButton(onClick = onResume) { Text("继续") }
+                    TextButton(onClick = onCancel) { Text("取消") }
+                }
+            }
+        }
+    }
 } 

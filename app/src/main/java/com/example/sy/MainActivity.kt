@@ -49,7 +49,9 @@ class MainActivity : ComponentActivity() {
                         }
                         else -> {
                             MainScreen(
-                                onSettingsClick = { showAbout = true }
+                                onSettingsClick = { showAbout = true },
+                                onHelpClick = { Toast.makeText(context, "帮助内容开发中", Toast.LENGTH_SHORT).show() },
+                                onGuideClick = { Toast.makeText(context, "操作引导开发中", Toast.LENGTH_SHORT).show() }
                             )
                         }
                     }
