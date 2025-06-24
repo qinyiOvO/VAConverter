@@ -224,11 +224,11 @@ fun MainScreen(
     var snackbarMsg by remember { mutableStateOf("") }
 
     // 顶部栏
-    Scaffold(
-        topBar = {
-            CenterAlignedTopAppBar(
+        Scaffold(
+            topBar = {
+                CenterAlignedTopAppBar(
                 title = { Text("视频音频转换器", fontSize = 28.sp) },
-                navigationIcon = {
+                    navigationIcon = {
                     IconButton(onClick = onSettingsClick) {
                         Icon(Icons.Default.Settings, contentDescription = "设置", tint = Color.White, modifier = Modifier.size(32.dp))
                     }
@@ -239,20 +239,20 @@ fun MainScreen(
                     }
                     IconButton(onClick = onHelpClick) {
                         Icon(Icons.Default.Help, contentDescription = "帮助", tint = Color.White, modifier = Modifier.size(32.dp))
-                    }
-                },
-                colors = TopAppBarDefaults.centerAlignedTopAppBarColors(
+                        }
+                    },
+                    colors = TopAppBarDefaults.centerAlignedTopAppBarColors(
                     containerColor = Color(0xFF1976D2), // 更高对比度蓝色
-                    titleContentColor = Color.White,
-                    navigationIconContentColor = Color.White
+                        titleContentColor = Color.White,
+                        navigationIconContentColor = Color.White
+                    )
                 )
-            )
-        }
-    ) { paddingValues ->
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(paddingValues)
+            }
+        ) { paddingValues ->
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(paddingValues)
                 .padding(24.dp)
         ) {
             // 选择视频按钮
@@ -268,7 +268,7 @@ fun MainScreen(
             Spacer(modifier = Modifier.height(20.dp))
             // 开始转换按钮
             Button(
-                onClick = {
+                            onClick = {
                     selectedVideo?.let {
                         convertingTasks = convertingTasks + it
                         snackbarMsg = "开始转换：$it"
@@ -287,7 +287,7 @@ fun MainScreen(
             Text("转换中", fontWeight = FontWeight.Bold, fontSize = 22.sp)
             LazyColumn(modifier = Modifier.weight(1f, fill = false)) {
                 items(convertingTasks) { file ->
-                    Card(
+                Card(
                         modifier = Modifier
                             .fillMaxWidth()
                             .padding(vertical = 8.dp),
@@ -311,7 +311,7 @@ fun MainScreen(
             Text("已完成", fontWeight = FontWeight.Bold, fontSize = 22.sp)
             LazyColumn(modifier = Modifier.weight(1f, fill = false)) {
                 items(completedTasks) { file ->
-                    Card(
+                Card(
                         modifier = Modifier
                             .fillMaxWidth()
                             .padding(vertical = 8.dp),
