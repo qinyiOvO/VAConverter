@@ -42,7 +42,7 @@ android {
         compose = true
     }
     composeOptions {
-        kotlinCompilerExtensionVersion = "1.5.0"
+        kotlinCompilerExtensionVersion = "1.5.1"
     }
     packaging {
         resources {
@@ -95,5 +95,8 @@ dependencies {
     debugImplementation("androidx.compose.ui:ui-test-manifest")
 
     // FFmpegKit - 正确的依赖配置
-    implementation("com.arthenica:ffmpeg-kit-full:6.0.LTS")
+    implementation("com.arthenica:ffmpeg-kit-full:6.0-2")
+
+    // Permissions
+    implementation("com.google.accompanist:accompanist-permissions:0.32.0")
 }

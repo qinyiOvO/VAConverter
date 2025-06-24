@@ -1,5 +1,7 @@
 package com.example.sy.network
 
+import java.util.UUID
+
 data class DownloadTask(
     val id: String,
     val fileName: String,

@@ -11,7 +11,11 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Info
-import androidx.compose.material.icons.filled.Help
+import androidx.compose.material.icons.filled.QuestionMark
+import androidx.compose.material.icons.filled.Folder
+import androidx.compose.material.icons.filled.MusicNote
+import androidx.compose.material.icons.filled.Notifications
+import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material3.*
@@ -25,11 +29,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat.startActivity
-import androidx.compose.material.icons.filled.Folder
-import androidx.compose.material.icons.filled.MusicNote
-import androidx.compose.material.icons.filled.Notifications
-import androidx.compose.material.icons.filled.Delete
-import androidx.compose.ui.unit.Dp
 import androidx.compose.foundation.shape.RoundedCornerShape
 
 data class SettingsState(
@@ -69,7 +68,7 @@ fun SettingsScreen(
             },
             actions = {
                 IconButton(onClick = onHelpClick) {
-                    Icon(Icons.Default.Help, contentDescription = "帮助", modifier = Modifier.size(32.dp))
+                    Icon(Icons.Default.QuestionMark, contentDescription = "帮助", modifier = Modifier.size(32.dp))
                 }
             },
             colors = TopAppBarDefaults.topAppBarColors(
@@ -88,7 +87,7 @@ fun SettingsScreen(
                     title = "音频输出路径",
                     subtitle = audioOutputPath,
                     onClick = { /* TODO: 选择路径 */ },
-                    iconSize = 32.dp,
+                    iconSize = 32f,
                     fontSize = 20.sp
                 )
                 HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp), color = Color(0xFFEEEEEE))
@@ -100,7 +99,7 @@ fun SettingsScreen(
                     title = "音频格式",
                     subtitle = audioFormat,
                     onClick = { /* TODO: 选择格式 */ },
-                    iconSize = 32.dp,
+                    iconSize = 32f,
                     fontSize = 20.sp
                 )
                 HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp), color = Color(0xFFEEEEEE))
@@ -132,7 +131,7 @@ fun SettingsScreen(
                     title = "清除缓存",
                     subtitle = cacheSize,
                     onClick = { /* TODO: 清除缓存 */ },
-                    iconSize = 32.dp,
+                    iconSize = 32f,
                     fontSize = 20.sp
                 )
             }
@@ -152,7 +151,7 @@ fun SettingsScreen(
             shape = RoundedCornerShape(32.dp),
             colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF1976D2))
         ) {
-            Icon(Icons.Default.Help, contentDescription = null, modifier = Modifier.size(32.dp))
+            Icon(Icons.Default.QuestionMark, contentDescription = null, modifier = Modifier.size(32.dp))
             Spacer(modifier = Modifier.width(12.dp))
             Text("常见问题与帮助", fontSize = 22.sp)
         }
@@ -213,7 +212,7 @@ private fun SettingItem(
     title: String,
     subtitle: String,
     onClick: () -> Unit,
-    iconSize: Dp,
+    iconSize: Float,
     fontSize: androidx.compose.ui.unit.TextUnit
 ) {
     Surface(
@@ -230,7 +229,7 @@ private fun SettingItem(
                 imageVector = icon,
                 contentDescription = title,
                 tint = MaterialTheme.colorScheme.primary,
-                modifier = Modifier.size(iconSize)
+                modifier = Modifier.size(iconSize.dp)
             )
             
             Spacer(modifier = Modifier.width(16.dp))
