@@ -1,6 +1,7 @@
 package com.example.sy
 
 import android.os.Bundle
+import android.util.Log
 import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -15,10 +16,25 @@ import com.example.sy.ui.screens.AboutScreen
 import com.example.sy.ui.screens.FeedbackScreen
 import com.example.sy.ui.screens.HelpScreen
 import com.example.sy.ui.theme.SYTheme
+import com.example.sy.network.LogManager
+import com.example.sy.network.FeedbackManager
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        
+        try {
+            // 初始化日志管理器
+            LogManager.initialize(this)
+            LogManager.appendLog("MainActivity onCreate")
+            
+            // 初始化反馈管理器
+            FeedbackManager.initialize(this)
+            LogManager.appendLog("FeedbackManager initialized")
+        } catch (e: Exception) {
+            Log.e("MainActivity", "初始化失败", e)
+        }
+        
         setContent {
             SYTheme {
                 Surface(
@@ -33,36 +49,64 @@ class MainActivity : ComponentActivity() {
                     when {
                         showHelp -> {
                             HelpScreen(
-                                onBackClick = { showHelp = false }
+                                onBackClick = { 
+                                    LogManager.appendLog("退出帮助界面")
+                                    showHelp = false 
+                                }
                             )
                         }
                         showFeedback -> {
                             FeedbackScreen(
-                                onBackClick = { showFeedback = false },
-                                onSubmit = { _ ->
-                                    // TODO: 实现反馈提交逻辑
-                                    Toast.makeText(context, "反馈已提交", Toast.LENGTH_SHORT).show()
+                                onBackClick = { 
+                                    LogManager.appendLog("退出反馈界面")
+                                    showFeedback = false 
                                 }
                             )
                         }
                         showAbout -> {
                             AboutScreen(
-                                onBackClick = { showAbout = false },
-                                onCheckUpdate = { /* TODO: 实现检查更新 */ },
-                                onUserAgreement = { /* TODO: 实现用户协议 */ },
-                                onPrivacyPolicy = { /* TODO: 实现隐私政策 */ },
-                                onFeedback = { showFeedback = true }
+                                onBackClick = { 
+                                    LogManager.appendLog("退出关于界面")
+                                    showAbout = false 
+                                },
+                                onCheckUpdate = { 
+                                    LogManager.appendLog("检查更新")
+                                    /* TODO: 实现检查更新 */ 
+                                },
+                                onUserAgreement = { 
+                                    LogManager.appendLog("查看用户协议")
+                                    /* TODO: 实现用户协议 */ 
+                                },
+                                onPrivacyPolicy = { 
+                                    LogManager.appendLog("查看隐私政策")
+                                    /* TODO: 实现隐私政策 */ 
+                                },
+                                onFeedback = { 
+                                    LogManager.appendLog("打开反馈界面")
+                                    showFeedback = true 
+                                }
                             )
                         }
                         else -> {
                             MainScreen(
-                                onSettingsClick = { showAbout = true },
-                                onHelpClick = { showHelp = true }
+                                onSettingsClick = { 
+                                    LogManager.appendLog("打开关于界面")
+                                    showAbout = true 
+                                },
+                                onHelpClick = { 
+                                    LogManager.appendLog("打开帮助界面")
+                                    showHelp = true 
+                                }
                             )
                         }
                     }
                 }
             }
         }
+    }
+
+    override fun onDestroy() {
+        super.onDestroy()
+        LogManager.appendLog("MainActivity onDestroy")
     }
 }
