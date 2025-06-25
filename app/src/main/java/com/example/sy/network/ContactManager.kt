@@ -47,14 +47,14 @@ object ContactManager {
     /**
      * 获取开发者姓名
      */
-    fun getDeveloperName(context: Context): String {
+    fun getDeveloperName(): String {
         return DEVELOPER_NAME
     }
     
     /**
      * 获取隐私政策链接
      */
-    fun getPrivacyPolicyUrl(context: Context): String {
+    fun getPrivacyPolicyUrl(): String {
         return PRIVACY_POLICY_URL
     }
     
@@ -84,7 +84,7 @@ object ContactManager {
      */
     fun openPrivacyPolicy(context: Context) {
         try {
-            val url = getPrivacyPolicyUrl(context)
+            val url = getPrivacyPolicyUrl()
             val intent = Intent(Intent.ACTION_VIEW, Uri.parse(url))
             context.startActivity(intent)
         } catch (e: Exception) {
@@ -96,6 +96,6 @@ object ContactManager {
      * 获取联系方式信息（用于显示）
      */
     fun getContactInfo(context: Context): String {
-        return "开发者：${getDeveloperName(context)}\n邮箱：${getDeveloperEmail(context)}"
+        return "开发者：${getDeveloperName()}\n邮箱：${getDeveloperEmail(context)}"
     }
 } 

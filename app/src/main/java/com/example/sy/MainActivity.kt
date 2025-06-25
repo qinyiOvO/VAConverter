@@ -80,15 +80,15 @@ class MainActivity : ComponentActivity() {
                                 },
                                 onCheckUpdate = { 
                                     LogManager.appendLog("检查更新")
-                                    /* TODO: 实现检查更新 */ 
+                                    Toast.makeText(this@MainActivity, "暂无更新", Toast.LENGTH_SHORT).show()
                                 },
                                 onUserAgreement = { 
                                     LogManager.appendLog("查看用户协议")
-                                    /* TODO: 实现用户协议 */ 
+                                    Toast.makeText(this@MainActivity, "用户协议功能开发中", Toast.LENGTH_SHORT).show()
                                 },
                                 onPrivacyPolicy = { 
                                     LogManager.appendLog("查看隐私政策")
-                                    /* TODO: 实现隐私政策 */ 
+                                    Toast.makeText(this@MainActivity, "隐私政策功能开发中", Toast.LENGTH_SHORT).show()
                                 },
                                 onFeedback = { 
                                     LogManager.appendLog("打开反馈界面")
