@@ -32,13 +32,14 @@ object LogManager {
             cleanOldLogs(logDir)
             
             // 写入初始信息（不包含隐私信息）
-            appendLog("应用启动")
-            appendLog("设备信息（仅用于兼容性检测）：")
+            appendLog("=== 应用启动日志 ===")
+            appendLog("应用版本：1.0.0")
             appendLog("Android版本：${android.os.Build.VERSION.RELEASE}")
             appendLog("设备型号：${android.os.Build.MODEL}")
             appendLog("制造商：${android.os.Build.MANUFACTURER}")
-            appendLog("应用版本：1.0.0")
             appendLog("日志说明：所有日志仅保存在本地，不包含任何个人隐私信息")
+            appendLog("隐私保护：已启用敏感信息过滤")
+            appendLog("=== 日志开始 ===")
         } catch (e: Exception) {
             Log.e(TAG, "初始化日志管理器失败", e)
         }
@@ -71,8 +72,10 @@ object LogManager {
     private fun sanitizeLogMessage(message: String): String {
         var sanitized = message
         
-        // 移除可能的文件路径中的用户名
+        // 移除可能的文件路径中的用户名和具体路径
         sanitized = sanitized.replace(Regex("/storage/emulated/0/.*?/"), "/storage/emulated/0/***/")
+        sanitized = sanitized.replace(Regex("/data/data/.*?/"), "/data/data/***/")
+        sanitized = sanitized.replace(Regex("/sdcard/.*?/"), "/sdcard/***/")
         
         // 移除可能的邮箱地址
         sanitized = sanitized.replace(Regex("[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}"), "***@***.***")
@@ -91,6 +94,21 @@ object LogManager {
         
         // 移除可能的MAC地址
         sanitized = sanitized.replace(Regex("([0-9A-Fa-f]{2}[:-]){5}([0-9A-Fa-f]{2})"), "**:**:**:**:**:**")
+        
+        // 移除可能的IMEI号
+        sanitized = sanitized.replace(Regex("\\d{15}"), "***************")
+        
+        // 移除可能的设备ID
+        sanitized = sanitized.replace(Regex("[a-fA-F0-9]{8}-[a-fA-F0-9]{4}-[a-fA-F0-9]{4}-[a-fA-F0-9]{4}-[a-fA-F0-9]{12}"), "***-****-****-****-***")
+        
+        // 移除可能的文件名中的个人信息
+        sanitized = sanitized.replace(Regex("\\b[A-Za-z0-9._%+-]+\\.[A-Za-z]{2,}\\b"), "***.***")
+        
+        // 移除可能的联系人姓名
+        sanitized = sanitized.replace(Regex("联系人[：:].*"), "联系人：***")
+        
+        // 移除可能的地址信息
+        sanitized = sanitized.replace(Regex("地址[：:].*"), "地址：***")
         
         return sanitized
     }
@@ -118,7 +136,7 @@ object LogManager {
         try {
             logFile?.delete()
             logQueue.clear()
-            Log.d(TAG, "日志已清理")
+            appendLog("日志已清理")
         } catch (e: Exception) {
             Log.e(TAG, "清理日志失败", e)
         }
@@ -162,5 +180,27 @@ object LogManager {
     fun logConversionStatus(taskId: String, status: String, progress: Float? = null) {
         val progressText = progress?.let { "，进度：${(it * 100).toInt()}%" } ?: ""
         appendLog("转换任务[$taskId]状态：$status$progressText")
+    }
+
+    /**
+     * 记录权限申请（不包含具体权限名称）
+     */
+    fun logPermissionRequest(permissionType: String, granted: Boolean) {
+        appendLog("权限申请：$permissionType，结果：${if (granted) "已授权" else "已拒绝"}")
+    }
+
+    /**
+     * 记录应用生命周期事件
+     */
+    fun logAppLifecycle(event: String) {
+        appendLog("应用生命周期：$event")
+    }
+
+    /**
+     * 记录性能相关事件（不包含具体数据）
+     */
+    fun logPerformance(event: String, duration: Long? = null) {
+        val durationText = duration?.let { "，耗时：${it}ms" } ?: ""
+        appendLog("性能事件：$event$durationText")
     }
 } 
