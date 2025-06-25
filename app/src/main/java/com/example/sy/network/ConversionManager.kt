@@ -27,6 +27,30 @@ class ConversionManager(private val context: Context) {
     private val _conversionTasks = MutableStateFlow<List<ConversionTask>>(emptyList())
     val conversionTasks: StateFlow<List<ConversionTask>> = _conversionTasks.asStateFlow()
 
+    // 检查已完成任务的文件是否存在
+    suspend fun checkExistingFiles() {
+        withContext(Dispatchers.IO) {
+            val tasks = _conversionTasks.value.toMutableList()
+            val tasksToRemove = mutableListOf<Int>()
+            
+            tasks.forEachIndexed { index, task ->
+                if (task.status == ConversionStatus.COMPLETED) {
+                    val file = File(task.outputPath)
+                    if (!file.exists()) {
+                        tasksToRemove.add(index)
+                    }
+                }
+            }
+            
+            // 从后往前删除，避免索引变化
+            tasksToRemove.reversed().forEach { index ->
+                tasks.removeAt(index)
+            }
+            
+            _conversionTasks.value = tasks
+        }
+    }
+
     suspend fun startConversion(inputUri: Uri, outputFormat: String = "mp3") {
         withContext(Dispatchers.IO) {
             try {
@@ -41,18 +65,18 @@ class ConversionManager(private val context: Context) {
                 val fileName = getFileNameFromUri(inputUri)
 
                 // 创建输出文件
-                val outputFile = createOutputFile(inputPath, outputFormat)
+                val outputFile = createOutputFile(fileName, outputFormat)
 
                 // 创建转换任务
                 val task = ConversionTask(
                     inputPath = inputPath,
                     outputPath = outputFile.absolutePath,
-                    fileName = fileName
+                    fileName = outputFile.name
                 )
 
                 // 添加到任务列表
                 _conversionTasks.value = _conversionTasks.value + task
-                Log.d("ConversionManager", "添加新任务: $fileName")
+                Log.d("ConversionManager", "添加新任务: ${outputFile.name}")
 
                 // 开始转换
                 val command = "-i \"$inputPath\" -vn -acodec libmp3lame \"${outputFile.absolutePath}\""
@@ -63,11 +87,11 @@ class ConversionManager(private val context: Context) {
                         when {
                             ReturnCode.isSuccess(session.returnCode) -> {
                                 updateTaskStatus(task.id, ConversionStatus.COMPLETED)
-                                Log.d("ConversionManager", "转换完成: $fileName")
+                                Log.d("ConversionManager", "转换完成: ${outputFile.name}")
                             }
                             ReturnCode.isCancel(session.returnCode) -> {
                                 updateTaskStatus(task.id, ConversionStatus.CANCELLED)
-                                Log.d("ConversionManager", "转换取消: $fileName")
+                                Log.d("ConversionManager", "转换取消: ${outputFile.name}")
                             }
                             else -> {
                                 updateTaskStatus(task.id, ConversionStatus.FAILED)
@@ -106,7 +130,13 @@ class ConversionManager(private val context: Context) {
         val tasks = _conversionTasks.value.toMutableList()
         val index = tasks.indexOfFirst { it.id == taskId }
         if (index != -1) {
-            tasks[index] = tasks[index].copy(progress = progress)
+            val task = tasks[index]
+            val currentTime = System.currentTimeMillis()
+            val elapsedSeconds = ((currentTime - task.startTime) / 1000).toInt()
+            tasks[index] = task.copy(
+                progress = progress,
+                elapsedTime = elapsedSeconds
+            )
             _conversionTasks.value = tasks
         }
     }
@@ -146,16 +176,100 @@ class ConversionManager(private val context: Context) {
         }
     }
 
-    private fun createOutputFile(inputPath: String, outputFormat: String): File {
+    private fun createOutputFile(fileName: String, outputFormat: String): File {
         val timestamp = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.getDefault()).format(Date())
-        val inputFile = File(inputPath)
-        val outputFileName = "${inputFile.nameWithoutExtension}_$timestamp.$outputFormat"
+        val baseFileName = fileName.substringBeforeLast(".")
+        var outputFileName = "${baseFileName}_$timestamp.$outputFormat"
         
         val outputDir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_MUSIC)
         if (!outputDir.exists()) {
             outputDir.mkdirs()
         }
         
-        return File(outputDir, outputFileName)
+        var outputFile = File(outputDir, outputFileName)
+        var counter = 1
+        
+        // 如果文件已存在，添加序号
+        while (outputFile.exists()) {
+            outputFileName = "${baseFileName}_${timestamp}_${counter}.$outputFormat"
+            outputFile = File(outputDir, outputFileName)
+            counter++
+        }
+        
+        return outputFile
+    }
+
+    suspend fun deleteTask(taskId: String, deleteFile: Boolean) {
+        withContext(Dispatchers.IO) {
+            val tasks = _conversionTasks.value.toMutableList()
+            val taskIndex = tasks.indexOfFirst { it.id == taskId }
+            
+            if (taskIndex != -1) {
+                val task = tasks[taskIndex]
+                
+                if (deleteFile) {
+                    // 删除输出文件
+                    try {
+                        File(task.outputPath).delete()
+                    } catch (e: Exception) {
+                        Log.e("ConversionManager", "删除文件失败: ${task.outputPath}", e)
+                    }
+                }
+                
+                // 从列表中移除任务
+                tasks.removeAt(taskIndex)
+                _conversionTasks.value = tasks
+                Log.d("ConversionManager", "删除任务: $taskId, 删除文件: $deleteFile")
+            }
+        }
+    }
+
+    suspend fun renameTask(taskId: String, newName: String) {
+        withContext(Dispatchers.IO) {
+            val tasks = _conversionTasks.value.toMutableList()
+            val taskIndex = tasks.indexOfFirst { it.id == taskId }
+            
+            if (taskIndex != -1) {
+                val task = tasks[taskIndex]
+                val oldFile = File(task.outputPath)
+                
+                if (oldFile.exists()) {
+                    // 确保新文件名有正确的扩展名
+                    val extension = oldFile.extension
+                    val newNameWithExt = if (newName.endsWith(".$extension", ignoreCase = true)) {
+                        newName
+                    } else {
+                        "$newName.$extension"
+                    }
+                    
+                    // 创建新文件名，处理重名情况
+                    var newFile = File(oldFile.parent, newNameWithExt)
+                    var counter = 1
+                    
+                    while (newFile.exists() && newFile.absolutePath != oldFile.absolutePath) {
+                        val nameWithoutExt = newNameWithExt.substringBeforeLast(".")
+                        newFile = File(oldFile.parent, "${nameWithoutExt}_${counter}.$extension")
+                        counter++
+                    }
+                    
+                    try {
+                        // 重命名文件
+                        if (oldFile.renameTo(newFile)) {
+                            // 更新任务信息
+                            tasks[taskIndex] = task.copy(
+                                fileName = newFile.name,
+                                outputPath = newFile.absolutePath
+                            )
+                            _conversionTasks.value = tasks
+                            Log.d("ConversionManager", "重命名任务: $taskId, 新名称: ${newFile.name}")
+                        } else {
+                            Log.e("ConversionManager", "重命名文件失败: ${oldFile.absolutePath} -> ${newFile.absolutePath}")
+                        }
+                    } catch (e: Exception) {
+                        Log.e("ConversionManager", "重命名过程出错", e)
+                    }
+                }
+            }
+        }
     }
 } 

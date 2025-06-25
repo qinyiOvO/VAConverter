@@ -13,6 +13,7 @@ import androidx.compose.ui.platform.LocalContext
 import com.example.sy.ui.screens.MainScreen
 import com.example.sy.ui.screens.AboutScreen
 import com.example.sy.ui.screens.FeedbackScreen
+import com.example.sy.ui.screens.HelpScreen
 import com.example.sy.ui.theme.SYTheme
 
 class MainActivity : ComponentActivity() {
@@ -26,9 +27,15 @@ class MainActivity : ComponentActivity() {
                 ) {
                     var showAbout by remember { mutableStateOf(false) }
                     var showFeedback by remember { mutableStateOf(false) }
+                    var showHelp by remember { mutableStateOf(false) }
                     val context = LocalContext.current
 
                     when {
+                        showHelp -> {
+                            HelpScreen(
+                                onBackClick = { showHelp = false }
+                            )
+                        }
                         showFeedback -> {
                             FeedbackScreen(
                                 onBackClick = { showFeedback = false },
@@ -50,8 +57,7 @@ class MainActivity : ComponentActivity() {
                         else -> {
                             MainScreen(
                                 onSettingsClick = { showAbout = true },
-                                onHelpClick = { Toast.makeText(context, "帮助内容开发中", Toast.LENGTH_SHORT).show() },
-                                onGuideClick = { Toast.makeText(context, "操作引导开发中", Toast.LENGTH_SHORT).show() }
+                                onHelpClick = { showHelp = true }
                             )
                         }
                     }

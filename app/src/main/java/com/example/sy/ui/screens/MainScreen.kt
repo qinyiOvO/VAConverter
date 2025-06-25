@@ -5,6 +5,7 @@ import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import android.widget.Toast
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -41,18 +42,24 @@ import kotlinx.coroutines.withContext
 import androidx.compose.runtime.rememberCoroutineScope
 import java.io.File
 import android.util.Log
+import androidx.compose.animation.core.*
+import androidx.compose.runtime.mutableFloatStateOf
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalPermissionsApi::class)
 @Composable
 fun MainScreen(
     onSettingsClick: () -> Unit,
-    onHelpClick: () -> Unit,
-    onGuideClick: () -> Unit
+    onHelpClick: () -> Unit
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val conversionManager = remember { ConversionManager(context) }
     val conversionTasks by conversionManager.conversionTasks.collectAsState()
+    
+    // 检查文件是否存在
+    LaunchedEffect(Unit) {
+        conversionManager.checkExistingFiles()
+    }
     
     // 调试日志
     LaunchedEffect(conversionTasks) {
@@ -106,9 +113,6 @@ fun MainScreen(
                     }
                 },
                 actions = {
-                    IconButton(onClick = onGuideClick) {
-                        Icon(Icons.Default.Info, contentDescription = "操作引导", tint = Color.White, modifier = Modifier.size(32.dp))
-                    }
                     IconButton(onClick = onHelpClick) {
                         Icon(Icons.Default.QuestionMark, contentDescription = "帮助", tint = Color.White, modifier = Modifier.size(32.dp))
                     }
@@ -185,7 +189,7 @@ fun MainScreen(
                         )
                     }
                     items(convertingTasks) { task ->
-                        ConversionTaskItem(task)
+                        ConversionTaskItem(task = task, conversionManager = conversionManager)
                     }
                 }
 
@@ -203,7 +207,7 @@ fun MainScreen(
                         )
                     }
                     items(completedTasks) { task ->
-                        ConversionTaskItem(task)
+                        ConversionTaskItem(task = task, conversionManager = conversionManager)
                     }
                 }
 
@@ -221,7 +225,7 @@ fun MainScreen(
                         )
                     }
                     items(failedTasks) { task ->
-                        ConversionTaskItem(task)
+                        ConversionTaskItem(task = task, conversionManager = conversionManager)
                     }
                 }
             }
@@ -230,8 +234,17 @@ fun MainScreen(
 }
 
 @Composable
-fun ConversionTaskItem(task: ConversionTask) {
+fun ConversionTaskItem(
+    task: ConversionTask,
+    conversionManager: ConversionManager
+) {
     val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    
+    // 对话框状态
+    var showDeleteDialog by remember { mutableStateOf(false) }
+    var showRenameDialog by remember { mutableStateOf(false) }
+    var newFileName by remember { mutableStateOf(task.fileName) }
     
     Card(
         modifier = Modifier
@@ -256,11 +269,76 @@ fun ConversionTaskItem(task: ConversionTask) {
             
             // 进度条
             if (task.status == ConversionStatus.CONVERTING || task.status == ConversionStatus.WAITING) {
-                LinearProgressIndicator(
-                    progress = { task.progress },
+                var animatedProgress by remember { mutableFloatStateOf(0f) }
+                
+                LaunchedEffect(task.progress) {
+                    // 确保进度值在0-1之间
+                    val targetProgress = task.progress.coerceIn(0f, 1f)
+                    animate(
+                        initialValue = animatedProgress,
+                        targetValue = targetProgress,
+                        animationSpec = tween(
+                            durationMillis = 500,
+                            easing = FastOutSlowInEasing
+                        )
+                    ) { value, _ ->
+                        animatedProgress = value
+                    }
+                }
+
+                Column(
                     modifier = Modifier.fillMaxWidth(),
-                    color = MaterialTheme.colorScheme.primary
-                )
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    // 进度百分比文字（移到进度条上方）
+                    Text(
+                        text = "转换进度：${(animatedProgress * 100).toInt()}%",
+                        color = MaterialTheme.colorScheme.primary,
+                        fontSize = 16.sp,
+                        fontWeight = FontWeight.Bold,
+                        modifier = Modifier.padding(bottom = 8.dp)
+                    )
+
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(32.dp)  // 增加进度条高度
+                    ) {
+                        // 进度条背景
+                        Box(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .background(
+                                    color = MaterialTheme.colorScheme.primary.copy(alpha = 0.2f),
+                                    shape = RoundedCornerShape(8.dp)  // 增加圆角
+                                )
+                        )
+                        
+                        // 进度条前景
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth(animatedProgress.coerceIn(0f, 1f))  // 确保进度值不超过1
+                                .fillMaxHeight()
+                                .background(
+                                    color = MaterialTheme.colorScheme.primary,
+                                    shape = RoundedCornerShape(8.dp)
+                                )
+                        )
+                    }
+
+                    // 预计剩余时间
+                    if (task.status == ConversionStatus.CONVERTING && animatedProgress > 0f && animatedProgress < 1f) {
+                        val remainingTime = ((1 - animatedProgress) / animatedProgress * task.elapsedTime)
+                            .toInt()
+                            .coerceAtLeast(0)  // 确保不会出现负数
+                        Text(
+                            text = "预计剩余时间：${formatTime(remainingTime)}",
+                            fontSize = 14.sp,  // 增大字体
+                            color = Color.Gray,
+                            modifier = Modifier.padding(top = 8.dp)
+                        )
+                    }
+                }
                 
                 Spacer(modifier = Modifier.height(8.dp))
             }
@@ -287,8 +365,8 @@ fun ConversionTaskItem(task: ConversionTask) {
                     }
                 )
                 
-                if (task.status == ConversionStatus.COMPLETED) {
-                    Row {
+                Row {
+                    if (task.status == ConversionStatus.COMPLETED) {
                         // 播放按钮
                         IconButton(onClick = {
                             try {
@@ -331,10 +409,94 @@ fun ConversionTaskItem(task: ConversionTask) {
                         }) {
                             Icon(Icons.Default.Share, contentDescription = "分享")
                         }
+                        
+                        // 重命名按钮
+                        IconButton(onClick = { showRenameDialog = true }) {
+                            Icon(Icons.Default.Edit, contentDescription = "重命名")
+                        }
+                    }
+                    
+                    // 删除按钮
+                    IconButton(onClick = { showDeleteDialog = true }) {
+                        Icon(Icons.Default.Delete, 
+                            contentDescription = "删除",
+                            tint = Color(0xFFF44336)
+                        )
                     }
                 }
             }
         }
+    }
+    
+    // 删除确认对话框
+    if (showDeleteDialog) {
+        AlertDialog(
+            onDismissRequest = { showDeleteDialog = false },
+            title = { Text("删除任务") },
+            text = { Text("是否同时删除转换后的文件？") },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        scope.launch {
+                            conversionManager.deleteTask(task.id, true)
+                            showDeleteDialog = false
+                        }
+                    }
+                ) {
+                    Text("删除任务和文件")
+                }
+            },
+            dismissButton = {
+                TextButton(
+                    onClick = {
+                        scope.launch {
+                            conversionManager.deleteTask(task.id, false)
+                            showDeleteDialog = false
+                        }
+                    }
+                ) {
+                    Text("仅删除任务")
+                }
+            }
+        )
+    }
+    
+    // 重命名对话框
+    if (showRenameDialog) {
+        AlertDialog(
+            onDismissRequest = { showRenameDialog = false },
+            title = { Text("重命名文件") },
+            text = {
+                OutlinedTextField(
+                    value = newFileName,
+                    onValueChange = { newFileName = it },
+                    label = { Text("文件名") },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth()
+                )
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        if (newFileName.isNotBlank() && newFileName != task.fileName) {
+                            scope.launch {
+                                conversionManager.renameTask(task.id, newFileName)
+                                showRenameDialog = false
+                            }
+                        } else {
+                            showRenameDialog = false
+                        }
+                    }
+                ) {
+                    Text("确定")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showRenameDialog = false }) {
+                    Text("取消")
+                }
+            }
+        )
     }
 }
 
@@ -342,6 +504,18 @@ fun ConversionTaskItem(task: ConversionTask) {
 @Composable
 fun MainScreenPreview() {
     SYTheme {
-        MainScreen(onSettingsClick = {}, onHelpClick = {}, onGuideClick = {})
+        MainScreen(
+            onSettingsClick = {},
+            onHelpClick = {}
+        )
+    }
+}
+
+// 添加一个格式化时间的函数
+private fun formatTime(seconds: Int): String {
+    return when {
+        seconds < 60 -> "${seconds}秒"
+        seconds < 3600 -> "${seconds / 60}分${seconds % 60}秒"
+        else -> "${seconds / 3600}小时${(seconds % 3600) / 60}分${seconds % 60}秒"
     }
 } 

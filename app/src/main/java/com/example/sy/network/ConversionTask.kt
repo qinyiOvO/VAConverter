@@ -6,7 +6,9 @@ data class ConversionTask(
     val outputPath: String,
     val fileName: String,
     var status: ConversionStatus = ConversionStatus.WAITING,
-    var progress: Float = 0f
+    var progress: Float = 0f,
+    var startTime: Long = System.currentTimeMillis(),
+    var elapsedTime: Int = 0
 )
 
 enum class ConversionStatus {
