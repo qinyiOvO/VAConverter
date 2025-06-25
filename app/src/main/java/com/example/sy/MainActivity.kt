@@ -5,6 +5,7 @@ import android.util.Log
 import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -44,7 +45,15 @@ class MainActivity : ComponentActivity() {
                     var showAbout by remember { mutableStateOf(false) }
                     var showFeedback by remember { mutableStateOf(false) }
                     var showHelp by remember { mutableStateOf(false) }
-                    val context = LocalContext.current
+
+                    // 拦截系统返回键
+                    BackHandler(enabled = showAbout || showFeedback || showHelp) {
+                        when {
+                            showHelp -> showHelp = false
+                            showFeedback -> showFeedback = false
+                            showAbout -> showAbout = false
+                        }
+                    }
 
                     when {
                         showHelp -> {

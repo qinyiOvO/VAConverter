@@ -44,6 +44,7 @@ import java.io.File
 import android.util.Log
 import androidx.compose.animation.core.*
 import androidx.compose.runtime.mutableFloatStateOf
+import com.google.accompanist.permissions.MultiplePermissionsState
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalPermissionsApi::class)
 @Composable
@@ -70,19 +71,18 @@ fun MainScreen(
     }
 
     // 权限请求
-    val permissions = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-        listOf(
-            Manifest.permission.READ_MEDIA_VIDEO,
-            Manifest.permission.READ_MEDIA_AUDIO
-        )
+    val videoPermissions = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+        listOf(Manifest.permission.READ_MEDIA_VIDEO)
     } else {
-        listOf(
-            Manifest.permission.READ_EXTERNAL_STORAGE,
-            Manifest.permission.WRITE_EXTERNAL_STORAGE
-        )
+        listOf(Manifest.permission.READ_EXTERNAL_STORAGE, Manifest.permission.WRITE_EXTERNAL_STORAGE)
     }
-    
-    val permissionsState = rememberMultiplePermissionsState(permissions)
+    val videoPermissionsState = rememberMultiplePermissionsState(videoPermissions)
+    val audioPermissions = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+        listOf(Manifest.permission.READ_MEDIA_AUDIO)
+    } else {
+        listOf(Manifest.permission.READ_EXTERNAL_STORAGE)
+    }
+    val audioPermissionsState = rememberMultiplePermissionsState(audioPermissions)
     
     // 文件选择器
     val videoPickerLauncher = rememberLauncherForActivityResult(
@@ -118,7 +118,7 @@ fun MainScreen(
                     }
                 },
                 colors = TopAppBarDefaults.centerAlignedTopAppBarColors(
-                    containerColor = Color(0xFF1976D2),
+                    containerColor = MaterialTheme.colorScheme.primary,
                     titleContentColor = Color.White,
                     navigationIconContentColor = Color.White
                 )
@@ -133,10 +133,10 @@ fun MainScreen(
             // 选择视频按钮
             Button(
                 onClick = {
-                    if (permissionsState.allPermissionsGranted) {
+                    if (videoPermissionsState.allPermissionsGranted) {
                         videoPickerLauncher.launch("video/*")
                     } else {
-                        permissionsState.launchMultiplePermissionRequest()
+                        videoPermissionsState.launchMultiplePermissionRequest()
                     }
                 },
                 modifier = Modifier
@@ -189,7 +189,7 @@ fun MainScreen(
                         )
                     }
                     items(convertingTasks) { task ->
-                        ConversionTaskItem(task = task, conversionManager = conversionManager)
+                        ConversionTaskItem(task = task, conversionManager = conversionManager, audioPermissionsState = audioPermissionsState)
                     }
                 }
 
@@ -207,7 +207,7 @@ fun MainScreen(
                         )
                     }
                     items(completedTasks) { task ->
-                        ConversionTaskItem(task = task, conversionManager = conversionManager)
+                        ConversionTaskItem(task = task, conversionManager = conversionManager, audioPermissionsState = audioPermissionsState)
                     }
                 }
 
@@ -225,7 +225,7 @@ fun MainScreen(
                         )
                     }
                     items(failedTasks) { task ->
-                        ConversionTaskItem(task = task, conversionManager = conversionManager)
+                        ConversionTaskItem(task = task, conversionManager = conversionManager, audioPermissionsState = audioPermissionsState)
                     }
                 }
             }
@@ -233,10 +233,12 @@ fun MainScreen(
     }
 }
 
+@OptIn(ExperimentalPermissionsApi::class)
 @Composable
 fun ConversionTaskItem(
     task: ConversionTask,
-    conversionManager: ConversionManager
+    conversionManager: ConversionManager,
+    audioPermissionsState: MultiplePermissionsState
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
@@ -369,20 +371,24 @@ fun ConversionTaskItem(
                     if (task.status == ConversionStatus.COMPLETED) {
                         // 播放按钮
                         IconButton(onClick = {
-                            try {
-                                val file = File(task.outputPath)
-                                val uri = androidx.core.content.FileProvider.getUriForFile(
-                                    context,
-                                    "${context.packageName}.provider",
-                                    file
-                                )
-                                val intent = Intent(Intent.ACTION_VIEW).apply {
-                                    setDataAndType(uri, "audio/*")
-                                    addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                            if (audioPermissionsState.allPermissionsGranted) {
+                                try {
+                                    val file = File(task.outputPath)
+                                    val uri = androidx.core.content.FileProvider.getUriForFile(
+                                        context,
+                                        "${context.packageName}.provider",
+                                        file
+                                    )
+                                    val intent = Intent(Intent.ACTION_VIEW).apply {
+                                        setDataAndType(uri, "audio/*")
+                                        addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                                    }
+                                    context.startActivity(intent)
+                                } catch (e: Exception) {
+                                    Toast.makeText(context, "无法打开文件", Toast.LENGTH_SHORT).show()
                                 }
-                                context.startActivity(intent)
-                            } catch (e: Exception) {
-                                Toast.makeText(context, "无法打开文件", Toast.LENGTH_SHORT).show()
+                            } else {
+                                audioPermissionsState.launchMultiplePermissionRequest()
                             }
                         }) {
                             Icon(Icons.Default.PlayArrow, contentDescription = "播放")

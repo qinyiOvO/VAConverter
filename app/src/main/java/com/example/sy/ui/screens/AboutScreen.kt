@@ -1,5 +1,7 @@
 package com.example.sy.ui.screens
 
+import android.content.Intent
+import android.net.Uri
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -17,6 +19,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -31,6 +34,8 @@ fun AboutScreen(
     onPrivacyPolicy: () -> Unit,
     onFeedback: () -> Unit
 ) {
+    val context = LocalContext.current
+    
     Column(
         modifier = Modifier.fillMaxSize()
     ) {
@@ -83,7 +88,7 @@ fun AboutScreen(
                 
                 // 应用名称
                 Text(
-                    text = "视频音频转换器",
+                    text = "音视通转",
                     fontSize = 28.sp,
                     fontWeight = FontWeight.Medium,
                     color = Color(0xFF212121)
@@ -145,7 +150,14 @@ fun AboutScreen(
                 AboutItem(
                     icon = Icons.Default.Lock,
                     title = "隐私政策",
-                    onClick = onPrivacyPolicy,
+                    onClick = {
+                        try {
+                            val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://xuyao-dev.github.io/privacy-policy.html"))
+                            context.startActivity(intent)
+                        } catch (e: Exception) {
+                            onPrivacyPolicy()
+                        }
+                    },
                     showArrow = true
                 )
                 

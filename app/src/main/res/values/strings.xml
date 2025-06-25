@@ -1,3 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">音视通转</string>
+    
+    <!-- 联系方式 - 使用资源ID引用，增加安全性 -->
+    <string name="contact_email">2551752032@qq.com</string>
+    <string name="developer_name">旭尧</string>
+    
+    <!-- 隐私政策链接 -->
+    <string name="privacy_policy_url">https://xuyao-dev.github.io/privacy-policy.html</string>
 </resources>

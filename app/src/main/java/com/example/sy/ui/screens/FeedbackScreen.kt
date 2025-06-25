@@ -24,6 +24,7 @@ import androidx.compose.ui.unit.sp
 import android.os.Build
 import com.example.sy.network.LogManager
 import com.example.sy.network.FeedbackManager
+import com.example.sy.network.ContactManager
 import java.text.SimpleDateFormat
 import java.util.*
 
@@ -73,8 +74,8 @@ fun FeedbackScreen(
 
             val emailIntent = Intent(Intent.ACTION_SEND).apply {
                 type = "message/rfc822"
-                putExtra(Intent.EXTRA_EMAIL, arrayOf("2551752032@qq.com"))
-                putExtra(Intent.EXTRA_SUBJECT, "视频音频转换器 - ${selectedType}反馈")
+                putExtra(Intent.EXTRA_EMAIL, arrayOf(ContactManager.getDeveloperEmail(context)))
+                putExtra(Intent.EXTRA_SUBJECT, "音视通转 - ${selectedType}反馈")
                 putExtra(Intent.EXTRA_TEXT, """
                     问题类型：${selectedType}
                     
