@@ -42,7 +42,7 @@ fun HelpScreen(
                 }
             },
             colors = TopAppBarDefaults.topAppBarColors(
-                containerColor = Color(0xFF1976D2),
+                containerColor = MaterialTheme.colorScheme.primary,
                 titleContentColor = Color.White,
                 navigationIconContentColor = Color.White
             )
@@ -110,7 +110,8 @@ fun HelpScreen(
                                     details = listOf(
                                         "转换完成后会显示\"转换完成\"",
                                         "转换好的音频文件会自动保存在手机的\"Music\"文件夹中（打开路径：手机存储/Music）",
-                                        "可以直接点击播放按钮试听"
+                                        "可以直接点击播放按钮试听",
+                                        "点击\"打开\"按钮可快速定位文件（部分手机如未自动定位，请手动前往'音乐'文件夹）"
                                     )
                                 )
                             )
@@ -145,6 +146,21 @@ fun HelpScreen(
                                         "检查手机存储空间是否足够",
                                         "确保视频文件没有损坏",
                                         "可以尝试重新选择该视频进行转换"
+                                    )
+                                )
+                            )
+                        )
+                    }
+
+                    item {
+                        HelpSection(
+                            title = "权限说明",
+                            content = listOf(
+                                HelpItem(
+                                    title = "为何需要存储/音频权限？",
+                                    details = listOf(
+                                        "存储/媒体权限用于读取您选择的视频和保存转换后的音频文件。",
+                                        "音频权限仅用于播放转换后的音频，不会收集您的个人信息。"
                                     )
                                 )
                             )
@@ -188,7 +204,8 @@ fun HelpScreen(
                                         "▶️ 播放：点击可以试听转换好的音频",
                                         "↗️ 分享：点击可以把音频发送给他人",
                                         "✏️ 重命名：点击可以修改文件名称",
-                                        "🗑️ 删除：点击可以删除不需要的文件"
+                                        "🗑️ 删除：点击可以删除不需要的文件",
+                                        "📂 打开：点击可尝试用文件管理器定位音频文件（部分手机如未自动定位，请手动前往'音乐'文件夹）"
                                     )
                                 )
                             )

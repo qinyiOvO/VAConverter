@@ -143,7 +143,7 @@ fun MainScreen(
                     .fillMaxWidth()
                     .padding(16.dp)
                     .height(56.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF1976D2))
+                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
             ) {
                 Icon(Icons.Default.Add, contentDescription = null)
                 Spacer(modifier = Modifier.width(8.dp))
@@ -246,6 +246,7 @@ fun ConversionTaskItem(
     // 对话框状态
     var showDeleteDialog by remember { mutableStateOf(false) }
     var showRenameDialog by remember { mutableStateOf(false) }
+    var showOpenDialog by remember { mutableStateOf(false) }
     var newFileName by remember { mutableStateOf(task.fileName) }
     
     Card(
@@ -393,7 +394,6 @@ fun ConversionTaskItem(
                         }) {
                             Icon(Icons.Default.PlayArrow, contentDescription = "播放")
                         }
-                        
                         // 分享按钮
                         IconButton(onClick = {
                             try {
@@ -415,7 +415,10 @@ fun ConversionTaskItem(
                         }) {
                             Icon(Icons.Default.Share, contentDescription = "分享")
                         }
-                        
+                        // 打开按钮
+                        IconButton(onClick = { showOpenDialog = true }) {
+                            Icon(Icons.Default.FolderOpen, contentDescription = "打开")
+                        }
                         // 重命名按钮
                         IconButton(onClick = { showRenameDialog = true }) {
                             Icon(Icons.Default.Edit, contentDescription = "重命名")
@@ -501,6 +504,38 @@ fun ConversionTaskItem(
                 TextButton(onClick = { showRenameDialog = false }) {
                     Text("取消")
                 }
+            }
+        )
+    }
+
+    // 打开文件对话框
+    if (showOpenDialog) {
+        AlertDialog(
+            onDismissRequest = { showOpenDialog = false },
+            title = { Text("打开文件位置") },
+            text = {
+                Column {
+                    Text("文件路径：\n${task.outputPath}", fontSize = 14.sp)
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text("是否要打开文件管理器查看该文件？\n部分手机可能无法自动定位，请手动前往'音乐'文件夹。", color = Color.Gray, fontSize = 13.sp)
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    showOpenDialog = false
+                    try {
+                        val file = File(task.outputPath)
+                        val intent = Intent(Intent.ACTION_VIEW)
+                        intent.setDataAndType(Uri.fromFile(file), "resource/folder")
+                        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                        context.startActivity(intent)
+                    } catch (e: Exception) {
+                        Toast.makeText(context, "无法打开文件管理器，请手动前往'音乐'文件夹。", Toast.LENGTH_LONG).show()
+                    }
+                }) { Text("打开") }
+            },
+            dismissButton = {
+                TextButton(onClick = { showOpenDialog = false }) { Text("取消") }
             }
         )
     }

@@ -22,10 +22,36 @@ import java.util.Date
 import java.util.Locale
 import android.provider.OpenableColumns
 import java.io.FileOutputStream
+import android.content.SharedPreferences
+import com.google.gson.Gson
+import com.google.gson.reflect.TypeToken
 
 class ConversionManager(private val context: Context) {
     private val _conversionTasks = MutableStateFlow<List<ConversionTask>>(emptyList())
     val conversionTasks: StateFlow<List<ConversionTask>> = _conversionTasks.asStateFlow()
+    private val prefs: SharedPreferences = context.getSharedPreferences("conversion_tasks", Context.MODE_PRIVATE)
+    private val gson = Gson()
+
+    init {
+        // 启动时恢复任务
+        val json = prefs.getString("tasks", null)
+        if (json != null) {
+            val type = object : TypeToken<List<ConversionTask>>() {}.type
+            val list: List<ConversionTask> = gson.fromJson(json, type) ?: emptyList()
+            // 未完成的任务标记为失败
+            val updated = list.map {
+                if (it.status == ConversionStatus.CONVERTING || it.status == ConversionStatus.WAITING) {
+                    it.copy(status = ConversionStatus.FAILED)
+                } else it
+            }
+            _conversionTasks.value = updated
+        }
+    }
+
+    private fun persistTasks() {
+        val json = gson.toJson(_conversionTasks.value)
+        prefs.edit().putString("tasks", json).apply()
+    }
 
     // 检查已完成任务的文件是否存在
     suspend fun checkExistingFiles() {
@@ -48,6 +74,7 @@ class ConversionManager(private val context: Context) {
             }
             
             _conversionTasks.value = tasks
+            persistTasks()
         }
     }
 
@@ -76,6 +103,7 @@ class ConversionManager(private val context: Context) {
 
                 // 添加到任务列表
                 _conversionTasks.value = _conversionTasks.value + task
+                persistTasks()
                 Log.d("ConversionManager", "添加新任务: ${outputFile.name}")
 
                 // 开始转换
@@ -122,6 +150,7 @@ class ConversionManager(private val context: Context) {
         if (index != -1) {
             tasks[index] = tasks[index].copy(status = status)
             _conversionTasks.value = tasks
+            persistTasks()
             Log.d("ConversionManager", "更新任务状态: $taskId -> $status")
         }
     }
@@ -138,6 +167,7 @@ class ConversionManager(private val context: Context) {
                 elapsedTime = elapsedSeconds
             )
             _conversionTasks.value = tasks
+            persistTasks()
         }
     }
 
@@ -219,6 +249,7 @@ class ConversionManager(private val context: Context) {
                 // 从列表中移除任务
                 tasks.removeAt(taskIndex)
                 _conversionTasks.value = tasks
+                persistTasks()
                 Log.d("ConversionManager", "删除任务: $taskId, 删除文件: $deleteFile")
             }
         }
@@ -261,6 +292,7 @@ class ConversionManager(private val context: Context) {
                                 outputPath = newFile.absolutePath
                             )
                             _conversionTasks.value = tasks
+                            persistTasks()
                             Log.d("ConversionManager", "重命名任务: $taskId, 新名称: ${newFile.name}")
                         } else {
                             Log.e("ConversionManager", "重命名文件失败: ${oldFile.absolutePath} -> ${newFile.absolutePath}")
